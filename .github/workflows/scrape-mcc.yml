@@ -1,0 +1,48 @@
+name: Scrape MCC Course Data
+
+on:
+  schedule:
+    - cron: '15,45 * * * *'   # offset from mc-planner's */30 schedule
+  workflow_dispatch: {}
+  repository_dispatch:
+    types: [scrape-mcc]
+
+concurrency:
+  group: scrape-mcc
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Write service account credentials
+        run: echo "$FIRESTORE_SA_KEY_BASE64" | base64 -d > "$RUNNER_TEMP/firestore-key.json"
+        env:
+          FIRESTORE_SA_KEY_BASE64: ${{ secrets.FIRESTORE_SA_KEY_BASE64 }}
+
+      - name: Run scraper
+        run: node gcp-scraper/run-once.js
+        env:
+          NODE_ENV: firestore
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firestore-key.json
+          FIRESTORE_PROJECT_ID: ${{ vars.FIRESTORE_PROJECT_ID }}
+          FIRESTORE_COLLECTION_PREFIX: ${{ vars.FIRESTORE_COLLECTION_PREFIX }}
+          SCRAPE_COURSE_CODE: ${{ vars.SCRAPE_COURSE_CODE || 'CSC' }}
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firestore-key.json"

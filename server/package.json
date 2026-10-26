@@ -1,0 +1,10 @@
+{
+  "name": "mc-scraper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@google-cloud/firestore": "^7.11.0",
+    "dotenv": "^16.3.1"
+  }
+}
